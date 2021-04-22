@@ -1,17 +1,19 @@
 package com.example.zshop.services;
 
 import com.example.zshop.data.TokenInfo;
+import com.example.zshop.entities.User;
 import com.example.zshop.exceptions.BadRequestException;
 import com.example.zshop.exceptions.Message;
 import com.example.zshop.jwt.JwtTokenProvider;
 import com.example.zshop.responses.DataResponse;
-import com.example.zshop.entities.User;
+
 import com.example.zshop.models.LoginDTO;
 import com.example.zshop.models.RegisterDTO;
 import com.example.zshop.repositories.UserRepository;
 import com.example.zshop.responses.LoginResponse;
 import com.example.zshop.security.CustomUserDetails;
 import com.example.zshop.utils.Helpers;
+import com.example.zshop.utils.JsonParser;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -27,6 +29,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.Objects;
 import java.util.Random;
 
@@ -40,7 +43,7 @@ public class UserService implements UserDetailsService {
     @Autowired
     JwtTokenProvider jwtTokenProvider;
     @Autowired
-    RedisTemplate redisTemplate;
+    RedisTemplate<Object,Object> redisTemplate;
     @Override
     public UserDetails loadUserByUsername(String email){
         User user = userRepository.findUserByEmail(email);
@@ -55,22 +58,31 @@ public class UserService implements UserDetailsService {
         return new CustomUserDetails(user);
     }
     private BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
-    public ResponseEntity<?> saveUser(RegisterDTO registerDTO) {
+    public ResponseEntity<?> saveUser(RegisterDTO registerDTO) throws IOException {
         User user= checkEmail(registerDTO.getEmail());
         if(Objects.nonNull(user)){
             throw new BadRequestException(Message.USERNAME_EXITED);
         }
         int otp = randomOtp();
-        sendEmailOtp(registerDTO.getEmail(),otp);
         registerDTO.setOtp(otp);
-        redisTemplate.opsForValue().set(registerDTO.getEmail(),registerDTO);
-        user = new User();
-        user.setEmail(registerDTO.getEmail());
-        user.setPassWord(bCryptPasswordEncoder.encode(registerDTO.getPassword()));
-        userRepository.save(user);
+        sendEmailOtp(registerDTO.getEmail(),otp);
+        redisTemplate.opsForValue().set(registerDTO.getEmail(), JsonParser.toJson(registerDTO));
         DataResponse response = new DataResponse();
-        response.setMessage("Thêm tài khoản thành công!"+otp);
+        response.setMessage("Send otp!");
         return ResponseEntity.ok(response);
+    }
+    public ResponseEntity<?> addUserDatabase(RegisterDTO registerDTO) throws IOException{
+        RegisterDTO data = (RegisterDTO) redisTemplate.opsForValue().get(registerDTO.getEmail());
+        if(data.getOtp() != registerDTO.getOtp()){
+            throw  new BadRequestException(Message.OTP_NOT_VALID);
+        }
+            User user = new User();
+            user.setEmail(data.getEmail());
+            user.setPassWord(bCryptPasswordEncoder.encode(data.getPassword()));
+            userRepository.save(user);
+            DataResponse response = new DataResponse();
+            response.setMessage("Thêm tài khoản thành công!");
+            return ResponseEntity.ok(response);
     }
     private User checkEmail(String email){
         User user;
