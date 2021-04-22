@@ -20,9 +20,7 @@ public class AuthController {
     UserRepository userRepository;
 
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody RegisterDTO registerDTO ){
-      return userService.saveUser(registerDTO);
-    }
+    public ResponseEntity<?> registerUser(@RequestBody RegisterDTO registerDTO ){ return userService.saveUser(registerDTO); }
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginDTO loginDTO){
         return userService.login(loginDTO);

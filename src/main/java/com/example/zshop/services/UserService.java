@@ -12,8 +12,12 @@ import com.example.zshop.repositories.UserRepository;
 import com.example.zshop.responses.LoginResponse;
 import com.example.zshop.security.CustomUserDetails;
 import com.example.zshop.utils.Helpers;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,17 +28,19 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
+import java.util.Random;
 
-
+@Log4j2
 @Service
 public class UserService implements UserDetailsService {
     @Autowired
     UserRepository userRepository;
-
-
-    @Autowired protected AuthenticationManager authenticationManager;
+    @Autowired
+    AuthenticationManager authenticationManager;
     @Autowired
     JwtTokenProvider jwtTokenProvider;
+    @Autowired
+    RedisTemplate redisTemplate;
     @Override
     public UserDetails loadUserByUsername(String email){
         User user = userRepository.findUserByEmail(email);
@@ -50,17 +56,20 @@ public class UserService implements UserDetailsService {
     }
     private BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
     public ResponseEntity<?> saveUser(RegisterDTO registerDTO) {
-        User user;
-        user = checkEmail(registerDTO.getEmail());
+        User user= checkEmail(registerDTO.getEmail());
         if(Objects.nonNull(user)){
             throw new BadRequestException(Message.USERNAME_EXITED);
         }
+        int otp = randomOtp();
+        sendEmailOtp(registerDTO.getEmail(),otp);
+        registerDTO.setOtp(otp);
+        redisTemplate.opsForValue().set(registerDTO.getEmail(),registerDTO);
         user = new User();
         user.setEmail(registerDTO.getEmail());
         user.setPassWord(bCryptPasswordEncoder.encode(registerDTO.getPassword()));
         userRepository.save(user);
         DataResponse response = new DataResponse();
-        response.setMessage("Thêm tài khoản thành công!");
+        response.setMessage("Thêm tài khoản thành công!"+otp);
         return ResponseEntity.ok(response);
     }
     private User checkEmail(String email){
@@ -95,10 +104,49 @@ public class UserService implements UserDetailsService {
         Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginDTO.getEmail(), loginDTO.getPassword()));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         tokenInfo.assignForm(user.getId());
-        String token = jwtTokenProvider.generateToken(tokenInfo.getUserId());
-        String refreshToken = "";
+        String token = jwtTokenProvider.generateToken(tokenInfo);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(tokenInfo);
         loginResponse.assignForm(token, refreshToken);
         return loginResponse;
     }
+    @Autowired
+    private JavaMailSender javaMailSender;
 
+    private void sendEmailOtp(String email,int otp) {
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setTo(email);
+        msg.setSubject("Mã xác nhận");
+        msg.setText("Mã xác nhận của bạn"+otp);
+        javaMailSender.send(msg);
+
+    }
+    private Integer randomOtp(){
+        Random random = new Random();
+       return random.nextInt(1000000);
+    }
+//    void sendEmailWithAttachment() throws MessagingException, IOException {
+//
+//        MimeMessage msg = javaMailSender.createMimeMessage();
+//
+//        // true = multipart message
+//        MimeMessageHelper helper = new MimeMessageHelper(msg, true);
+//
+//        helper.setTo("to_@email");
+//
+//        helper.setSubject("Testing from Spring Boot");
+//
+//        // default = text/plain
+//        //helper.setText("Check attachment for image!");
+//
+//        // true = text/html
+//        helper.setText("<h1>Check attachment for image!</h1>", true);
+//
+//        // hard coded a file path
+//        //FileSystemResource file = new FileSystemResource(new File("path/android.png"));
+//
+//        helper.addAttachment("my_photo.png", new ClassPathResource("android.png"));
+//
+//        javaMailSender.send(msg);
+//
+//    }
 }

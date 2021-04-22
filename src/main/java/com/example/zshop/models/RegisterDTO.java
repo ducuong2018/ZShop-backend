@@ -11,4 +11,6 @@ public class RegisterDTO {
 
     @NotNull
     private String password;
+
+    private int otp;
 }

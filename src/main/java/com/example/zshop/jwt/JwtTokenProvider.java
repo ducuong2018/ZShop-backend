@@ -1,55 +1,68 @@
 package com.example.zshop.jwt;
 
+import com.example.zshop.data.TokenInfo;
 import io.jsonwebtoken.*;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @Slf4j
 public class JwtTokenProvider {
-    // Đoạn JWT_SECRET này là bí mật, chỉ có phía server biết
-    private final String JWT_SECRET = "lodaaaaaa";
+    private String secret  = "cuongdc";
 
-    //Thời gian có hiệu lực của chuỗi jwt
-    private final long JWT_EXPIRATION = 604800000L;
+    private int tokenExpireTime = 64000000;
 
-    // Tạo ra jwt từ thông tin user
-    public String generateToken(Long id) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION);
-        // Tạo chuỗi json web token từ id của user.
-        return Jwts.builder()
-                .setSubject(Long.toString(id))
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(SignatureAlgorithm.HS512, JWT_SECRET)
-                .compact();
+    private int refreshExpireTime= 64000000;;
+
+    public String generateToken(TokenInfo tokenInfo) {
+        Map<String, Object> claims = new HashMap<>();
+        return doGenerateToken(claims, tokenInfo.getUserId().toString());
     }
 
-    // Lấy thông tin user từ jwt
+    public String generateRefreshToken(TokenInfo tokenInfo) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("id", tokenInfo.getUserId().toString());
+        return doGenerateRefreshToken(claims, tokenInfo.getUserId().toString());
+    }
+
+    private String doGenerateRefreshToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpireTime * 1000))
+                .signWith(SignatureAlgorithm.HS512, secret).compact();
+    }
+
+    private String doGenerateToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + tokenExpireTime * 1000))
+                .signWith(SignatureAlgorithm.HS512, secret).compact();
+    }
+
     public Long getUserIdFromJWT(String token) {
         Claims claims = Jwts.parser()
-                .setSigningKey(JWT_SECRET)
+                .setSigningKey(secret)
                 .parseClaimsJws(token)
                 .getBody();
         return Long.parseLong(claims.getSubject());
     }
 
-    public boolean validateToken(String authToken) {
-        try {
-            Jwts.parser().setSigningKey(JWT_SECRET).parseClaimsJws(authToken);
-            return true;
-        } catch (MalformedJwtException ex) {
-            log.error("Invalid JWT token");
-        } catch (ExpiredJwtException ex) {
-            log.error("Expired JWT token");
-        } catch (UnsupportedJwtException ex) {
-            log.error("Unsupported JWT token");
-        } catch (IllegalArgumentException ex) {
-            log.error("JWT claims string is empty.");
-        }
-        return false;
+    private Claims getAllClaimsFromToken(String token) {
+        return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
+    }
+
+    public TokenInfo validateToken(String accessToken) {
+        Claims claims = getAllClaimsFromToken(accessToken);
+
+        Date expiration = claims.getExpiration();
+        if(expiration.before(new Date()))
+            return null;
+
+        TokenInfo tokenInfo = new TokenInfo();
+        tokenInfo.setUserId(Long.valueOf(claims.get(Claims.SUBJECT, String.class)));
+        return tokenInfo;
     }
 }
