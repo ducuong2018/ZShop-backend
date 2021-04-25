@@ -5,15 +5,15 @@ import com.example.zshop.entities.User;
 import com.example.zshop.exceptions.BadRequestException;
 import com.example.zshop.exceptions.Message;
 import com.example.zshop.jwt.JwtTokenProvider;
+import com.example.zshop.models.*;
 import com.example.zshop.responses.DataResponse;
 
-import com.example.zshop.models.LoginDTO;
-import com.example.zshop.models.RegisterDTO;
 import com.example.zshop.repositories.UserRepository;
 import com.example.zshop.responses.LoginResponse;
 import com.example.zshop.security.CustomUserDetails;
 import com.example.zshop.utils.Helpers;
 import com.example.zshop.utils.JsonParser;
+import com.example.zshop.utils.Redis;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -33,6 +33,8 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.Random;
 
+import static javafx.scene.input.KeyCode.T;
+
 @Log4j2
 @Service
 public class UserService implements UserDetailsService {
@@ -44,6 +46,11 @@ public class UserService implements UserDetailsService {
     JwtTokenProvider jwtTokenProvider;
     @Autowired
     RedisTemplate<Object,Object> redisTemplate;
+    @Autowired
+    private JavaMailSender javaMailSender;
+    @Autowired
+    Redis redis;
+    private BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
     @Override
     public UserDetails loadUserByUsername(String email){
         User user = userRepository.findUserByEmail(email);
@@ -57,24 +64,33 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findUserById(id);
         return new CustomUserDetails(user);
     }
-    private BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
-    public ResponseEntity<?> saveUser(RegisterDTO registerDTO) throws IOException {
-        User user= checkEmail(registerDTO.getEmail());
-        if(Objects.nonNull(user)){
+
+//register
+    public ResponseEntity<?> register(RegisterDTO registerDTO) throws IOException {
+        if(Objects.nonNull(checkEmail(registerDTO.getEmail()))){
             throw new BadRequestException(Message.USERNAME_EXITED);
         }
+        SendOtpDTO sendOtpDTO = new SendOtpDTO();
         int otp = randomOtp();
-        registerDTO.setOtp(otp);
         sendEmailOtp(registerDTO.getEmail(),otp);
-        redisTemplate.opsForValue().set(registerDTO.getEmail(), JsonParser.toJson(registerDTO));
+        sendOtpDTO.setOtp(otp);
+        sendOtpDTO.setEmail(registerDTO.getEmail());
+        sendOtpDTO.setPassword(registerDTO.getPassword());
+        redis.setRedis(registerDTO.getEmail(),sendOtpDTO);
         DataResponse response = new DataResponse();
-        response.setMessage("Send otp!");
+        response.setMessage("Gửi mã xác nhận thành công!");
         return ResponseEntity.ok(response);
     }
-    public ResponseEntity<?> addUserDatabase(RegisterDTO registerDTO) throws IOException{
-        RegisterDTO data = (RegisterDTO) redisTemplate.opsForValue().get(registerDTO.getEmail());
-        if(data.getOtp() != registerDTO.getOtp()){
+    public ResponseEntity<?> sendOtpRegister(SendOtpDTO sendOtpDTO) throws IOException{
+        SendOtpDTO data = redis.getRedis(sendOtpDTO.getEmail(), SendOtpDTO.class);
+        if(data.getOtp() != sendOtpDTO.getOtp()){
             throw  new BadRequestException(Message.OTP_NOT_VALID);
+        }
+        if(data.getEmail() !=  sendOtpDTO.getEmail()){
+            throw new BadRequestException(Message.NOT_FOUND);
+        }
+        if(data.getPassword() !=  sendOtpDTO.getPassword()){
+            throw new BadRequestException(Message.NOT_FOUND);
         }
             User user = new User();
             user.setEmail(data.getEmail());
@@ -84,6 +100,20 @@ public class UserService implements UserDetailsService {
             response.setMessage("Thêm tài khoản thành công!");
             return ResponseEntity.ok(response);
     }
+    private void sendEmailOtp(String email,int otp) {
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setTo(email);
+        msg.setSubject("Mã xác nhận");
+        msg.setText("Mã xác nhận của bạn"+otp);
+        javaMailSender.send(msg);
+
+    }
+    private Integer randomOtp(){
+        Random random = new Random();
+        return random.nextInt(1000000);
+    }
+
+
     private User checkEmail(String email){
         User user;
         if(Helpers.regexEmail(email)){
@@ -94,6 +124,8 @@ public class UserService implements UserDetailsService {
         }
         return  user;
     }
+
+    //login
     public ResponseEntity<?> login(LoginDTO loginDTO){
         LoginResponse loginResponse;
         User user = checkEmail(loginDTO.getEmail());
@@ -121,44 +153,38 @@ public class UserService implements UserDetailsService {
         loginResponse.assignForm(token, refreshToken);
         return loginResponse;
     }
-    @Autowired
-    private JavaMailSender javaMailSender;
 
-    private void sendEmailOtp(String email,int otp) {
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setTo(email);
-        msg.setSubject("Mã xác nhận");
-        msg.setText("Mã xác nhận của bạn"+otp);
-        javaMailSender.send(msg);
+//    forgot
+    public ResponseEntity<?> forgotPassword(ForgotDTO forgotDTO) throws IOException {
+        if(Objects.isNull(checkEmail(forgotDTO.getEmail()))){
+            throw new BadRequestException(Message.USER_NOT_EXITED);
+        }
+        int otp = randomOtp();
+        sendEmailOtp(forgotDTO.getEmail(),otp);
+        forgotDTO.setOtp(otp);
+        redis.setRedis(forgotDTO.getEmail(), forgotDTO);
+        DataResponse dataResponse = new DataResponse();
+        dataResponse.setMessage("Gửi mã xác nhận thành công!");
+        return ResponseEntity.ok(dataResponse);
+    }
+    public ResponseEntity<?> changePassword(ChangePasswordDTO changePasswordDTO) throws IOException{
+        ForgotDTO forgotDTO = redis.getRedis(changePasswordDTO.getEmail(), ForgotDTO.class);
+        User user = userRepository.findUserByEmail(changePasswordDTO.getEmail());
+        if(Objects.isNull(user)){
+            throw new BadRequestException(Message.USER_NOT_EXITED);
+        }
+        if(forgotDTO.getOtp() != changePasswordDTO.getOtp()){
+            throw new BadRequestException(Message.OTP_NOT_VALID);
+        }
+        if(!changePasswordDTO.getPassword().equals(changePasswordDTO.getRePassword())){
+            throw new BadRequestException(Message.RE_PASSWORD);
+        }
+        user.setPassWord(bCryptPasswordEncoder.encode(changePasswordDTO.getPassword()));
+        userRepository.save(user);
+        DataResponse dataResponse = new DataResponse();
+        dataResponse.setMessage("Thay đổi mật khẩu thành công");
+        redis.del(forgotDTO.getEmail());
+        return ResponseEntity.ok(dataResponse);
+    }
 
-    }
-    private Integer randomOtp(){
-        Random random = new Random();
-       return random.nextInt(1000000);
-    }
-//    void sendEmailWithAttachment() throws MessagingException, IOException {
-//
-//        MimeMessage msg = javaMailSender.createMimeMessage();
-//
-//        // true = multipart message
-//        MimeMessageHelper helper = new MimeMessageHelper(msg, true);
-//
-//        helper.setTo("to_@email");
-//
-//        helper.setSubject("Testing from Spring Boot");
-//
-//        // default = text/plain
-//        //helper.setText("Check attachment for image!");
-//
-//        // true = text/html
-//        helper.setText("<h1>Check attachment for image!</h1>", true);
-//
-//        // hard coded a file path
-//        //FileSystemResource file = new FileSystemResource(new File("path/android.png"));
-//
-//        helper.addAttachment("my_photo.png", new ClassPathResource("android.png"));
-//
-//        javaMailSender.send(msg);
-//
-//    }
 }

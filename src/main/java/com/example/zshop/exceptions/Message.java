@@ -3,6 +3,7 @@ package com.example.zshop.exceptions;
 public class Message {
     public static final String NOT_FOUND = "Có lỗi xảy ra!";
     public static final String PASSWORD_INVALID = "Tài khoản hoặc mật khẩu không đúng!";
+    public static final String RE_PASSWORD = "Mật khẩu không giống nhau!";
     public static final String WRONG_FORMAT = "Sai định dạng tài khoản!";
     public static final String USERNAME_EXITED = "Tài khoản đã tồn tại!";
     public static final String USERNAME_NOT_EXITED = "Tài khoản không tồn tại!";

@@ -2,14 +2,10 @@ package com.example.zshop.models;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotNull;
-
 @Data
-public class RegisterDTO {
-    @NotNull
+public class ChangePasswordDTO {
     private String email;
-
-    @NotNull
+    private int otp;
     private String password;
-
+    private String rePassword;
 }
