@@ -49,7 +49,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
                 .authorizeRequests()
                 .antMatchers("/v1/auth/login","/v1/auth/register","/v1/auth/sendOtp","/v1/auth/forgot_password","/v1/auth/forgot_change_password")
                 .permitAll()
-                .antMatchers("/v1/**")
+                .antMatchers("/v1/**","/v1/users")
                 .authenticated();
         http.addFilterBefore(jwtAuthenFilter(), UsernamePasswordAuthenticationFilter.class);
     }

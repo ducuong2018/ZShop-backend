@@ -31,6 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
+            log.info(jwt);
             if (StringUtils.hasText(jwt) && Objects.nonNull(jwtTokenProvider.validateToken(jwt))) {
                 Long userId = jwtTokenProvider.getUserIdFromJWT(jwt);
                 UserDetails userDetails = authService.loadUserById(userId);
@@ -42,6 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
+            log.info(String.valueOf(e));
             throw new BadRequestException(Message.NOT_FOUND);
         }
         filterChain.doFilter(request, response);

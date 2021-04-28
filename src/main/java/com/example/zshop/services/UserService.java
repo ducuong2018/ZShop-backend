@@ -10,6 +10,7 @@ import com.example.zshop.responses.DataResponse;
 
 import com.example.zshop.repositories.UserRepository;
 import com.example.zshop.responses.LoginResponse;
+import com.example.zshop.responses.UserResponse;
 import com.example.zshop.security.CustomUserDetails;
 import com.example.zshop.utils.Helpers;
 import com.example.zshop.utils.JsonParser;
@@ -30,10 +31,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-
-import static javafx.scene.input.KeyCode.T;
 
 @Log4j2
 @Service
@@ -64,6 +65,21 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findUserById(id);
         return new CustomUserDetails(user);
     }
+    public ResponseEntity<?> getAllUser(){
+        List<UserResponse> userResponses = new ArrayList<>();
+
+//        List<User> users = userRepository.findAll();
+//        users.stream().forEach(u -> );
+
+        for(User user : userRepository.findAll()){
+            UserResponse userResponse = new UserResponse();
+            userResponse.setEmail(user.getEmail());
+            userResponse.setId(user.getId());
+            userResponse.setPhone_number(user.getPhoneNumber());
+            userResponses.add(userResponse);
+        }
+        return ResponseEntity.ok(userResponses);
+    }
 
 //register
     public ResponseEntity<?> register(RegisterDTO registerDTO) throws IOException {
@@ -83,13 +99,15 @@ public class UserService implements UserDetailsService {
     }
     public ResponseEntity<?> sendOtpRegister(SendOtpDTO sendOtpDTO) throws IOException{
         SendOtpDTO data = redis.getRedis(sendOtpDTO.getEmail(), SendOtpDTO.class);
+        log.info(data);
         if(data.getOtp() != sendOtpDTO.getOtp()){
             throw  new BadRequestException(Message.OTP_NOT_VALID);
         }
-        if(data.getEmail() !=  sendOtpDTO.getEmail()){
+        if(!data.getEmail().equals(sendOtpDTO.getEmail())){
+            log.info("1");
             throw new BadRequestException(Message.NOT_FOUND);
         }
-        if(data.getPassword() !=  sendOtpDTO.getPassword()){
+        if(!data.getPassword().equals(sendOtpDTO.getPassword())){
             throw new BadRequestException(Message.NOT_FOUND);
         }
             User user = new User();

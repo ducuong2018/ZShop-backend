@@ -15,9 +15,9 @@ import java.util.Map;
 public class JwtTokenProvider {
     private String secret  = "cuongdc";
 
-    private int tokenExpireTime = 64000000;
+    private int tokenExpireTime = 6400;
 
-    private int refreshExpireTime= 64000000;;
+    private int refreshExpireTime= 64000;;
 
     public String generateToken(TokenInfo tokenInfo) {
         Map<String, Object> claims = new HashMap<>();
@@ -37,6 +37,9 @@ public class JwtTokenProvider {
     }
 
     private String doGenerateToken(Map<String, Object> claims, String subject) {
+        Date date= new Date(System.currentTimeMillis());
+
+        log.info(String.valueOf(date));
         return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + tokenExpireTime * 1000))
                 .signWith(SignatureAlgorithm.HS512, secret).compact();
