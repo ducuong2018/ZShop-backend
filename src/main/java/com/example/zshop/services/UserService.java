@@ -13,7 +13,6 @@ import com.example.zshop.responses.LoginResponse;
 import com.example.zshop.responses.UserResponse;
 import com.example.zshop.security.CustomUserDetails;
 import com.example.zshop.utils.Helpers;
-import com.example.zshop.utils.JsonParser;
 import com.example.zshop.utils.Redis;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,17 +66,14 @@ public class UserService implements UserDetailsService {
     }
     public ResponseEntity<?> getAllUser(){
         List<UserResponse> userResponses = new ArrayList<>();
-
-//        List<User> users = userRepository.findAll();
-//        users.stream().forEach(u -> );
-
-        for(User user : userRepository.findAll()){
+        List<User> users = userRepository.findAll();
+        users.stream().forEach(user -> {
             UserResponse userResponse = new UserResponse();
             userResponse.setEmail(user.getEmail());
             userResponse.setId(user.getId());
             userResponse.setPhone_number(user.getPhoneNumber());
             userResponses.add(userResponse);
-        }
+        });
         return ResponseEntity.ok(userResponses);
     }
 
@@ -122,7 +118,7 @@ public class UserService implements UserDetailsService {
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(email);
         msg.setSubject("Mã xác nhận");
-        msg.setText("Mã xác nhận của bạn"+otp);
+        msg.setText("Mã xác nhận của bạn "+otp);
         javaMailSender.send(msg);
 
     }
