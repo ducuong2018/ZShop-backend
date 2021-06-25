@@ -19,6 +19,7 @@ public class JwtTokenProvider {
 
     private int refreshExpireTime= 64000;;
 
+
     public String generateToken(TokenInfo tokenInfo) {
         Map<String, Object> claims = new HashMap<>();
         return doGenerateToken(claims, tokenInfo.getUserId().toString());

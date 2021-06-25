@@ -16,6 +16,7 @@ import java.util.List;
 public class UserController {
     @Autowired
     UserService userService;
+
     @GetMapping("users")
     public ResponseEntity<?> getAllUser(){
 
