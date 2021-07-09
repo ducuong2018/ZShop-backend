@@ -1,5 +1,6 @@
 package com.example.zshop.services;
 
+import com.example.zshop.data.Metadata;
 import com.example.zshop.data.TokenInfo;
 import com.example.zshop.entities.User;
 import com.example.zshop.exceptions.BadRequestException;
@@ -9,6 +10,7 @@ import com.example.zshop.models.*;
 import com.example.zshop.responses.DataResponse;
 
 import com.example.zshop.repositories.UserRepository;
+import com.example.zshop.responses.ListUserResponse;
 import com.example.zshop.responses.LoginResponse;
 import com.example.zshop.responses.UserResponse;
 import com.example.zshop.security.CustomUserDetails;
@@ -16,6 +18,10 @@ import com.example.zshop.utils.Helpers;
 import com.example.zshop.utils.Redis;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
@@ -64,9 +70,10 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findUserById(id);
         return new CustomUserDetails(user);
     }
-    public ResponseEntity<?> getAllUser(){
+    public ResponseEntity<?>  getAllUser(Pageable pageable){
         List<UserResponse> userResponses = new ArrayList<>();
-        List<User> users = userRepository.findAll();
+        ListUserResponse response = new ListUserResponse();
+        Page<User> users = userRepository.findAll(pageable);
         users.stream().forEach(user -> {
             UserResponse userResponse = new UserResponse();
             userResponse.setEmail(user.getEmail());
@@ -74,7 +81,9 @@ public class UserService implements UserDetailsService {
             userResponse.setPhone_number(user.getPhoneNumber());
             userResponses.add(userResponse);
         });
-        return ResponseEntity.ok(userResponses);
+        response.setUsers(userResponses);
+        response.setMetadata(new Metadata(users));
+        return ResponseEntity.ok(response);
     }
 
 //register
@@ -100,7 +109,6 @@ public class UserService implements UserDetailsService {
             throw  new BadRequestException(Message.OTP_NOT_VALID);
         }
         if(!data.getEmail().equals(sendOtpDTO.getEmail())){
-            log.info("1");
             throw new BadRequestException(Message.NOT_FOUND);
         }
         if(!data.getPassword().equals(sendOtpDTO.getPassword())){
