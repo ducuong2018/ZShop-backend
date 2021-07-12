@@ -21,6 +21,9 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 @Log4j2
 @Service
 public class ProductService {
@@ -28,7 +31,7 @@ public class ProductService {
     ProductRepository productRepository;
     @Autowired
     JwtTokenProvider jwtTokenProvider;
-    public ResponseEntity<?> createProduct(String jwt,ProductDTO productDTO){
+    public ResponseEntity<?> createProduct (String jwt,ProductDTO productDTO) throws Exception{
         Product product = new Product();
         product.setName(productDTO.getName());
         product.setImage(productDTO.getImage());
@@ -55,6 +58,8 @@ public class ProductService {
             product.setImage(value.getImage());
             listProduct.add(product);
         });
+        Stream<Product> result = listProduct.stream().filter(item->!item.getName().equals("null"));
+        log.info("12312");
         ListProductResponse listProductResponse = new ListProductResponse();
         listProductResponse.setProducts(listProduct);
         listProductResponse.setMetadata(new Metadata(productResponse));

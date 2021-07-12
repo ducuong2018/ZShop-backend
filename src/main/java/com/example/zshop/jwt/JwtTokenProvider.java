@@ -60,7 +60,6 @@ public class JwtTokenProvider {
 
     public TokenInfo validateToken(String accessToken) {
         Claims claims = getAllClaimsFromToken(accessToken);
-
         Date expiration = claims.getExpiration();
         if(expiration.before(new Date()))
             return null;

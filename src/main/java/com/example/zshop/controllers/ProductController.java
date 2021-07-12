@@ -13,7 +13,7 @@ public class ProductController {
     @Autowired
     ProductService productService;
     @PostMapping("product")
-    public ResponseEntity<?> createProduct(@RequestHeader("x-token") String jwt,@RequestBody ProductDTO productDTO){
+    public ResponseEntity<?> createProduct(@RequestHeader("x-token") String jwt,@RequestBody ProductDTO productDTO) throws Exception{
         return productService.createProduct(jwt,productDTO);
     }
     @GetMapping("product")
