@@ -58,8 +58,6 @@ public class ProductService {
             product.setImage(value.getImage());
             listProduct.add(product);
         });
-        Stream<Product> result = listProduct.stream().filter(item->!item.getName().equals("null"));
-        log.info("12312");
         ListProductResponse listProductResponse = new ListProductResponse();
         listProductResponse.setProducts(listProduct);
         listProductResponse.setMetadata(new Metadata(productResponse));

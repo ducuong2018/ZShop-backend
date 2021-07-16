@@ -122,7 +122,7 @@ public class UserService implements UserDetailsService {
             response.setMessage("Thêm tài khoản thành công!");
             return ResponseEntity.ok(response);
     }
-    private void sendEmailOtp(String email,int otp) {
+    public void sendEmailOtp(String email,int otp) {
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(email);
         msg.setSubject("Mã xác nhận");
